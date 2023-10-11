@@ -5,89 +5,107 @@
   ansible.builtin.include_vars:
     file: "{{ playbook_dir }}/inventory/hoth_secrets.yml"
     name: "bws"
+  when: use_bws
 
 - name: "Set fact"
   ansible.builtin.set_fact:
     secrets: '{{ lookup("community.general.bitwarden_secrets_manager", bws.bws_wallabag_id, bws_access_token=bws.bws_token).value | from_json }}'
+  when: use_bws
+
+- name: "Overwrite vars"
+  ansible.builtin.set_fact:
+    base_dir: "{{ secrets.base_dir }}"
+    wallabag_port: "{{ secrets.wallabag_port }}"
+    postgres_password: "{{ secrets.postgres_password }}"
+    wallabag_version: "{{ secrets.wallabag_version }}"
+    wallabag_email: "{{ secrets.wallabag_email }}"
+    wallabag_domain: "{{ secrets.wallabag_domain }}"
+    wallabag_register: "{{ secrets.wallabag_register }}"
+    env_secret: "{{ secrets.env_secret }}"
+  when: use_bws
+
+- name: "Debug"
+  ansible.builtin.debug:
+    msg: "{{ base_dir }}"
 
 - name: "Create directories"
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: "directory"
   loop:
-    - "{{ secrets.base_dir }}/wallabag"
-    - "{{ secrets.base_dir }}/wallabag/pg_data"
-    - "{{ secrets.base_dir }}/wallabag/images"
+    - "{{ base_dir }}/wallabag"
+    - "{{ base_dir }}/wallabag/pg_data"
+    - "{{ base_dir }}/wallabag/images"
 
 - name: "Create wallabag pod"
   containers.podman.podman_pod:
     name: "wallabag-pod"
     state: "created"
     infra_name: "wallabag-infra"
-    recreate: no
+    recreate: false
     ports:
-      - "{{ secrets.wallabag_port }}:80" # web
+      - "{{ wallabag_port }}:80" # web
 
 - name: "Run wallabag postgres"
   containers.podman.podman_container:
     pod: "wallabag-pod"
     name: "wallabag-postgres"
     image: "docker.io/library/postgres:16.0-alpine3.18"
-    recreate: no
+    recreate: false
     restart_policy: "no"
-    tty: no
-    detach: yes
+    tty: false
+    detach: true
     state: "started"
     env:
       POSTGRES_USER: "wallabag"
       POSTGRES_DB: "wallabag"
-      DB_PASSWORD: "{{ secrets.postgres_password }}"
-      POSTGRES_PASSWORD: "{{ secrets.postgres_password }}"
+      DB_PASSWORD: "{{ postgres_password }}"
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
       PGDATA: "/var/lib/postgresql/data"
     volumes:
-      - "{{ secrets.base_dir}}/wallabag/pg_data:/var/lib/postgresql/data:rw,Z"
+      - "{{ base_dir }}/wallabag/pg_data:/var/lib/postgresql/data:rw,Z"
 
 - name: "Run wallabag redis"
   containers.podman.podman_container:
     pod: "wallabag-pod"
     name: "wallabag-redis"
     image: "docker.io/library/redis:7.2.1-alpine3.18"
-    recreate: no
+    recreate: false
     restart_policy: "no"
-    tty: no
-    detach: yes
+    tty: false
+    detach: true
     state: "started"
 
 - name: "Run wallabag server"
   containers.podman.podman_container:
     pod: "wallabag-pod"
     name: "wallabag-server"
-    image: "docker.io/wallabag/wallabag:{{ secrets.wallabag_version }}"
-    recreate: yes
+    image: "docker.io/wallabag/wallabag:{{ wallabag_version }}"
+    recreate: false
     restart_policy: "no"
-    rm: no
-    tty: no
-    detach: yes
+    rm: false
+    tty: false
+    detach: true
     state: "started"
     env:
-      POSTGRES_PASSWORD: "{{ secrets.postgres_password }}"
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
       POSTGRES_USER: "wallabag"
       SYMFONY__ENV__DATABASE_DRIVER: "pdo_pgsql"
       SYMFONY__ENV__DATABASE_HOST: "127.0.0.1"
       SYMFONY__ENV__DATABASE_PORT: "5432"
       SYMFONY__ENV__DATABASE_NAME: "wallabag"
       SYMFONY__ENV__DATABASE_USER: "wallabag"
-      SYMFONY__ENV__DATABASE_PASSWORD: "{{ secrets.postgres_password }}"
+      SYMFONY__ENV__DATABASE_PASSWORD: "{{ postgres_password }}"
       SYMFONY__ENV__MAILER_DSN: "smtp://127.0.0.1"
-      SYMFONY__ENV__FROM_EMAIL: "{{ secrets.wallabag_email }}"
-      SYMFONY__ENV__DOMAIN_NAME: "https://{{ secrets.wallabag_domain }}"
+      SYMFONY__ENV__FROM_EMAIL: "{{ wallabag_email }}"
+      SYMFONY__ENV__DOMAIN_NAME: "https://{{ wallabag_domain }}"
       SYMFONY__ENV__SERVER_NAME: "Your wallabag instance"
       SYMFONY__ENV__REDIS_HOST: "127.0.0.1"
       SYMFONY__ENV__REDIS_PASSWORD: ""
-      SYMFONY__ENV__FOSUSER_REGISTRATION: "{{ secrets.wallabag_register }}"
+      SYMFONY__ENV__FOSUSER_REGISTRATION: "{{ wallabag_register }}"
       SYMFONY__ENV__FOSUSER_CONFIRMATION: "false"
-      SYMFONY__ENV__SECRET: "{{ secrets.env_secret }}"
+      SYMFONY__ENV__SECRET: "{{ env_secret }}"
     volumes:
-      - "{{ secrets.base_dir }}/wallabag/images:/var/www/wallabag/web/assets/images:z"
+      - "{{ base_dir }}/wallabag/images:/var/www/wallabag/web/assets/images:z"
 
 # TODO podman exec -it wallabag-server /var/www/wallabag/bin/console doctrine:migrations:migrate --env=prod --no-interaction

@@ -1,2 +1,13 @@
 ---
 # defaults file for ansible-role-wallabag-podman
+
+base_dir: "./"
+wallabag_port: "8080"
+postgres_password: "CHANGEME-stagnant-smirk-overdrawn-unblended-batch-acting-android-trial-suburb"
+wallabag_version: "2.6.7"
+wallabag_email: "bag@localhost"
+wallabag_domain: "localhost"
+wallabag_register: "false"
+env_secret: "CHANGEME-gumball-jailbird-ricotta-suitcase-distress-amperage-amplifier-glance-dash-frigidity"
+
+use_bws: false
