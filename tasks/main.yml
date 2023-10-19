@@ -14,13 +14,7 @@
 
 - name: "Overwrite vars"
   ansible.builtin.set_fact:
-    base_dir: "{{ secrets.base_dir }}"
-    wallabag_port: "{{ secrets.wallabag_port }}"
     postgres_password: "{{ secrets.postgres_password }}"
-    wallabag_version: "{{ secrets.wallabag_version }}"
-    wallabag_email: "{{ secrets.wallabag_email }}"
-    wallabag_domain: "{{ secrets.wallabag_domain }}"
-    wallabag_register: "{{ secrets.wallabag_register }}"
     env_secret: "{{ secrets.env_secret }}"
   when: use_bws
 
