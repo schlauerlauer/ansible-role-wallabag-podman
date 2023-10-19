@@ -3,7 +3,7 @@
 
 - name: "Include secrets"
   ansible.builtin.include_vars:
-    file: "{{ playbook_dir }}/inventory/hoth_secrets.yml"
+    file: "{{ playbook_dir }}/inventory/{{ secrets_file }}"
     name: "bws"
   when: use_bws
 
